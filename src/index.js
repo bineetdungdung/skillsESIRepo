@@ -1,6 +1,6 @@
 // Game constants
 const COLS = 10;
-const ROWS = 20;
+const ROWS = 23;
 const BLOCK_SIZE = 30;
 const PATTERN_SIZE = 5;
 
