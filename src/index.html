@@ -9,52 +9,51 @@
 </head>
 
 <body>
-  <div class="game-container">
-    <div class="main-panel">
-      <div>
-        <h1>🧱 Stack Overflown - Bineet Demo </h1>
-        <div class="subtitle">Match the error patterns before you overflow!</div>
-      </div>
-      <canvas id="gameCanvas" width="300" height="600"></canvas>
-    </div>
+  <main class="app">
+    <section class="game-card" aria-live="polite">
+      <p class="eyebrow">Number Guessing Game</p>
+      <h1>Guess the Number</h1>
+      <p class="subtitle">I’m thinking of a number between 1 and 100.</p>
 
-    <div class="side-panel">
-      <div class="info-section">
-        <h3>Current Score</h3>
-        <div class="score" id="score">0</div>
-        <h3>High Score</h3>
-        <div class="high-score" id="high-score">0</div>
-      </div>
-
-      <div class="info-section">
-        <h3>Target Pattern</h3>
-        <div class="pattern-preview">
-          <canvas id="patternCanvas" width="100" height="100"></canvas>
-          <div class="pattern-name" id="patternName">Loading...</div>
+      <div class="controls-row">
+        <div class="difficulty-picker">
+          <label for="difficultySelect">Difficulty</label>
+          <select id="difficultySelect" aria-label="Select difficulty">
+            <option value="easy">Easy (1-50)</option>
+            <option value="medium" selected>Medium (1-100)</option>
+            <option value="hard">Hard (1-500)</option>
+          </select>
         </div>
+
+        <label class="sr-only" for="guessInput">Your guess</label>
+        <input id="guessInput" type="number" min="1" max="100" placeholder="Enter a number" autocomplete="off" />
+        <button id="guessButton" type="button">Guess</button>
       </div>
 
-      <div class="info-section">
-        <h3>Controls</h3>
-        <div class="controls">
-          <strong>←/→</strong> Move<br />
-          <strong>↑</strong> Rotate<br />
-          <strong>↓</strong> Soft Drop<br />
-          <strong>Space</strong> Hard Drop<br />
-          <strong>P</strong> Pause
-        </div>
+      <div class="status-bar">
+        <span>Attempts: <strong id="attempts">0</strong></span>
+        <span>Score: <strong id="score">100</strong></span>
+        <button id="restartButton" class="secondary" type="button">Restart</button>
       </div>
-    </div>
-  </div>
 
-  <div class="game-over" id="gameOver">
-    <h2>STACK OVERFLOW!</h2>
-    <p>Your stack reached the ceiling</p>
-    <p>Final Score: <span id="finalScore">0</span></p>
-    <button onclick="location.reload()">Restart</button>
-  </div>
+      <div id="message" class="message">Make your first guess!</div>
 
-  <script src="patterns.js"></script>
+      <div class="history">
+        <h2>Previous guesses</h2>
+        <ul id="guessList" class="guess-list">
+          <li>No guesses yet</li>
+        </ul>
+      </div>
+
+      <div class="leaderboard">
+        <h2>Top 5 Scores</h2>
+        <ol id="leaderboardList" class="leaderboard-list">
+          <li>No scores yet</li>
+        </ol>
+      </div>
+    </section>
+  </main>
+
   <script src="index.js"></script>
 </body>
 

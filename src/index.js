@@ -1,359 +1,182 @@
-// Game constants
-const COLS = 10;
-const ROWS = 23;
-const BLOCK_SIZE = 30;
-const PATTERN_SIZE = 5;
-
-// Colors for blocks (dev-themed)
-const COLORS = {
-  0: "#252526", // Empty
-  1: "#f48771", // Bug red
-  2: "#4ec9b0", // Function cyan
-  3: "#ce9178", // String orange
-  4: "#c586c0", // Class purple
-  5: "#dcdcaa", // Variable yellow
-  6: "#569cd6", // Keyword blue
-  7: "#b5cea8", // Number green
-  8: "#000000", // Void (black)
+const difficultySettings = {
+  easy: { label: "Easy", min: 1, max: 50 },
+  medium: { label: "Medium", min: 1, max: 100 },
+  hard: { label: "Hard", min: 1, max: 500 },
 };
 
-// Tetromino shapes (simplified for easier pattern matching)
-const SHAPES = [
-  [[1]], // Single block
-  [[2, 2]], // Horizontal pair
-  [[3], [3]], // Vertical pair
-  [
-    [4, 4],
-    [4, 4],
-  ], // 2x2 square
-  [[5, 5, 5]], // Horizontal line of 3
-  [[8]], // Void block (black)
-  [[8, 8]], // Void pair
-];
+const randomNumberBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-// Game state
-let canvas, ctx, patternCanvas, patternCtx;
-let board = [];
-let currentPiece = null;
-let currentX = 0;
-let currentY = 0;
-let score = 0;
+const guessInput = document.getElementById("guessInput");
+const guessButton = document.getElementById("guessButton");
+const restartButton = document.getElementById("restartButton");
+const difficultySelect = document.getElementById("difficultySelect");
+const attemptsLabel = document.getElementById("attempts");
+const scoreLabel = document.getElementById("score");
+const messageBox = document.getElementById("message");
+const guessList = document.getElementById("guessList");
+const leaderboardList = document.getElementById("leaderboardList");
+const subtitle = document.querySelector(".subtitle");
+
+const SCORE_STORAGE_KEY = "guessing-game-leaderboard";
+const previousGuesses = [];
+let currentDifficulty = "medium";
+let targetNumber = 0;
+let attempts = 0;
+let score = 100;
 let gameOver = false;
-let isPaused = false;
-let dropCounter = 0;
-let dropInterval = 1000;
-let lastTime = 0;
-let targetPattern = null;
 
-// Initialize game
-function init() {
-  canvas = document.getElementById("gameCanvas");
-  ctx = canvas.getContext("2d");
-  patternCanvas = document.getElementById("patternCanvas");
-  patternCtx = patternCanvas.getContext("2d");
-
-  // Initialize empty board
-  board = Array(ROWS)
-    .fill(null)
-    .map(() => Array(COLS).fill(0));
-
-  // Set initial target pattern
-  setNewTargetPattern();
-
-  // Spawn first piece
-  spawnPiece();
-
-  // Start game loop
-  requestAnimationFrame(gameLoop);
-
-  // Add keyboard controls
-  document.addEventListener("keydown", handleKeyPress);
+function getDifficultySettings(level) {
+  return difficultySettings[level] || difficultySettings.medium;
 }
 
-// Game loop
-function gameLoop(time = 0) {
-  if (!gameOver && !isPaused) {
-    const deltaTime = time - lastTime;
-    lastTime = time;
-
-    dropCounter += deltaTime;
-    if (dropCounter > dropInterval) {
-      moveDown();
-      dropCounter = 0;
-    }
-  }
-
-  draw();
-  requestAnimationFrame(gameLoop);
+function updateAttempts() {
+  attemptsLabel.textContent = attempts;
 }
 
-// Draw everything
-function draw() {
-  // Clear canvas
-  ctx.fillStyle = COLORS[0];
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Draw board
-  for (let row = 0; row < ROWS; row++) {
-    for (let col = 0; col < COLS; col++) {
-      if (board[row][col]) {
-        drawBlock(ctx, col, row, board[row][col]);
-      }
-    }
-  }
-
-  // Draw current piece
-  if (currentPiece) {
-    drawPiece(ctx, currentPiece, currentX, currentY);
-  }
-
-  // Draw grid
-  ctx.strokeStyle = "#3e3e42";
-  ctx.lineWidth = 0.5;
-  for (let row = 0; row <= ROWS; row++) {
-    ctx.beginPath();
-    ctx.moveTo(0, row * BLOCK_SIZE);
-    ctx.lineTo(COLS * BLOCK_SIZE, row * BLOCK_SIZE);
-    ctx.stroke();
-  }
-  for (let col = 0; col <= COLS; col++) {
-    ctx.beginPath();
-    ctx.moveTo(col * BLOCK_SIZE, 0);
-    ctx.lineTo(col * BLOCK_SIZE, ROWS * BLOCK_SIZE);
-    ctx.stroke();
-  }
-}
-
-// Draw a single block
-function drawBlock(context, x, y, colorCode) {
-  context.fillStyle = COLORS[colorCode];
-  context.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-  context.strokeStyle = "#1e1e1e";
-  context.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-}
-
-// Draw current piece
-function drawPiece(context, piece, offsetX, offsetY) {
-  for (let row = 0; row < piece.length; row++) {
-    for (let col = 0; col < piece[row].length; col++) {
-      if (piece[row][col]) {
-        drawBlock(context, offsetX + col, offsetY + row, piece[row][col]);
-      }
-    }
-  }
-}
-
-// Spawn new piece
-function spawnPiece() {
-  const randomShape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-  currentPiece = randomShape.map((row) => [...row]);
-  currentX = Math.floor(COLS / 2) - Math.floor(currentPiece[0].length / 2);
-  currentY = 0;
-
-  if (checkCollision(currentPiece, currentX, currentY)) {
-    endGame();
-  }
-}
-
-// Check collision
-function checkCollision(piece, x, y) {
-  for (let row = 0; row < piece.length; row++) {
-    for (let col = 0; col < piece[row].length; col++) {
-      if (piece[row][col]) {
-        const newX = x + col;
-        const newY = y + row;
-
-        if (newX < 0 || newX >= COLS || newY >= ROWS) {
-          return true;
-        }
-
-        if (newY >= 0 && board[newY][newX]) {
-          return true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
-// Move piece down
-function moveDown() {
-  if (!checkCollision(currentPiece, currentX, currentY + 1)) {
-    currentY++;
-  } else {
-    lockPiece();
-    checkPatternMatch();
-    spawnPiece();
-  }
-}
-
-// Lock piece to board
-function lockPiece() {
-  for (let row = 0; row < currentPiece.length; row++) {
-    for (let col = 0; col < currentPiece[row].length; col++) {
-      if (currentPiece[row][col]) {
-        const boardY = currentY + row;
-        const boardX = currentX + col;
-        if (boardY >= 0) {
-          board[boardY][boardX] = currentPiece[row][col];
-        }
-      }
-    }
-  }
-}
-
-// Rotate piece
-function rotate() {
-  const rotated = currentPiece[0].map((_, i) => currentPiece.map((row) => row[i]).reverse());
-
-  if (!checkCollision(rotated, currentX, currentY)) {
-    currentPiece = rotated;
-  }
-}
-
-// Move left
-function moveLeft() {
-  if (!checkCollision(currentPiece, currentX - 1, currentY)) {
-    currentX--;
-  }
-}
-
-// Move right
-function moveRight() {
-  if (!checkCollision(currentPiece, currentX + 1, currentY)) {
-    currentX++;
-  }
-}
-
-// Hard drop
-function hardDrop() {
-  while (!checkCollision(currentPiece, currentX, currentY + 1)) {
-    currentY++;
-  }
-  lockPiece();
-  checkPatternMatch();
-  spawnPiece();
-}
-
-// Set new target pattern
-function setNewTargetPattern() {
-  targetPattern = ERROR_PATTERNS[Math.floor(Math.random() * ERROR_PATTERNS.length)];
-  drawTargetPattern();
-  document.getElementById("patternName").textContent = targetPattern.name;
-}
-
-// Draw target pattern
-function drawTargetPattern() {
-  if (!targetPattern) return;
-
-  const blockSize = 20;
-  patternCtx.fillStyle = "#1e1e1e";
-  patternCtx.fillRect(0, 0, patternCanvas.width, patternCanvas.height);
-
-  for (let row = 0; row < PATTERN_SIZE; row++) {
-    for (let col = 0; col < PATTERN_SIZE; col++) {
-      if (targetPattern.pattern[row][col]) {
-        patternCtx.fillStyle = "#f48771";
-        patternCtx.fillRect(col * blockSize, row * blockSize, blockSize, blockSize);
-        patternCtx.strokeStyle = "#3e3e42";
-        patternCtx.strokeRect(col * blockSize, row * blockSize, blockSize, blockSize);
-      }
-    }
-  }
-}
-
-// Check for pattern match
-function checkPatternMatch() {
-  for (let startRow = 0; startRow <= ROWS - PATTERN_SIZE; startRow++) {
-    for (let startCol = 0; startCol <= COLS - PATTERN_SIZE; startCol++) {
-      if (matchesPattern(startRow, startCol)) {
-        clearPattern(startRow, startCol);
-        score += 100;
-        updateScore();
-        setNewTargetPattern();
-        return;
-      }
-    }
-  }
-}
-
-// Check if pattern matches at position
-function matchesPattern(startRow, startCol) {
-  for (let row = 0; row < PATTERN_SIZE; row++) {
-    for (let col = 0; col < PATTERN_SIZE; col++) {
-      const cellValue = board[startRow + row][startCol + col];
-      // Void blocks (8) count as empty for pattern matching
-      const hasBlock = cellValue !== 0 && cellValue !== 8;
-      const needsBlock = targetPattern.pattern[row][col] === 1;
-
-      if (hasBlock !== needsBlock) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-// Clear matched pattern
-function clearPattern(startRow, startCol) {
-  // Clear all blocks on the board
-  for (let row = 0; row < ROWS; row++) {
-    for (let col = 0; col < COLS; col++) {
-      board[row][col] = 0;
-    }
-  }
-}
-
-// Update score display
 function updateScore() {
-  document.getElementById("score").textContent = score;
+  scoreLabel.textContent = score;
 }
 
-// Handle keyboard input
-function handleKeyPress(e) {
+function renderGuessHistory() {
+  if (previousGuesses.length === 0) {
+    guessList.innerHTML = "<li>No guesses yet</li>";
+    return;
+  }
+
+  guessList.innerHTML = previousGuesses.map((guess) => `<li>${guess}</li>`).join("");
+}
+
+function setMessage(text, type = "") {
+  messageBox.textContent = text;
+  messageBox.className = "message";
+
+  if (type) {
+    messageBox.classList.add(type);
+  }
+}
+
+function getLeaderboard() {
+  const storedScores = localStorage.getItem(SCORE_STORAGE_KEY);
+
+  if (!storedScores) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(storedScores);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveScoreToLeaderboard() {
+  const leaderboard = getLeaderboard();
+  leaderboard.push({ score, attempts, difficulty: currentDifficulty });
+
+  const sortedLeaderboard = leaderboard
+    .sort((a, b) => b.score - a.score || a.attempts - b.attempts)
+    .slice(0, 5);
+
+  localStorage.setItem(SCORE_STORAGE_KEY, JSON.stringify(sortedLeaderboard));
+  renderLeaderboard();
+}
+
+function renderLeaderboard() {
+  const leaderboard = getLeaderboard();
+
+  if (leaderboard.length === 0) {
+    leaderboardList.innerHTML = "<li>No scores yet</li>";
+    return;
+  }
+
+  leaderboardList.innerHTML = leaderboard
+    .map(
+      (entry, index) =>
+        `<li>#${index + 1} — ${entry.score} pts (${entry.difficulty.toUpperCase()}) — ${entry.attempts} attempts</li>`
+    )
+    .join("");
+}
+
+function startNewGame(level = currentDifficulty) {
+  currentDifficulty = level;
+  const settings = getDifficultySettings(level);
+
+  targetNumber = randomNumberBetween(settings.min, settings.max);
+  attempts = 0;
+  score = 100;
+  gameOver = false;
+  previousGuesses.length = 0;
+
+  guessInput.min = String(settings.min);
+  guessInput.max = String(settings.max);
+  guessInput.value = "";
+  guessInput.disabled = false;
+  guessButton.disabled = false;
+  guessInput.placeholder = `Enter a number between ${settings.min} and ${settings.max}`;
+  subtitle.textContent = `I’m thinking of a number between ${settings.min} and ${settings.max}.`;
+
+  updateAttempts();
+  updateScore();
+  renderGuessHistory();
+  setMessage(`New ${settings.label.toLowerCase()} game started! Guess a number between ${settings.min} and ${settings.max}.`, "warning");
+  guessInput.focus();
+}
+
+function checkGuess() {
   if (gameOver) return;
 
-  switch (e.key) {
-    case "ArrowLeft":
-      e.preventDefault();
-      if (!isPaused) moveLeft();
-      break;
-    case "ArrowRight":
-      e.preventDefault();
-      if (!isPaused) moveRight();
-      break;
-    case "ArrowDown":
-      e.preventDefault();
-      if (!isPaused) moveDown();
-      break;
-    case "ArrowUp":
-      e.preventDefault();
-      if (!isPaused) rotate();
-      break;
-    case " ":
-      e.preventDefault();
-      if (!isPaused) hardDrop();
-      break;
-    case "p":
-    case "P":
-      e.preventDefault();
-      togglePause();
-      break;
+  const settings = getDifficultySettings(currentDifficulty);
+  const userGuess = Number(guessInput.value);
+
+  if (!Number.isInteger(userGuess) || userGuess < settings.min || userGuess > settings.max) {
+    setMessage(`Please enter a valid whole number between ${settings.min} and ${settings.max}.`, "warning");
+    guessInput.focus();
+    return;
   }
+
+  attempts += 1;
+  updateAttempts();
+  previousGuesses.push(userGuess);
+  renderGuessHistory();
+
+  if (userGuess === targetNumber) {
+    gameOver = true;
+    guessInput.disabled = true;
+    guessButton.disabled = true;
+    setMessage(`🎉 Correct! ${targetNumber} was the secret number. Final score: ${score}. You solved it in ${attempts} attempts.`, "success");
+    saveScoreToLeaderboard();
+    return;
+  }
+
+  score = Math.max(0, score - 5);
+  updateScore();
+
+  if (userGuess < targetNumber) {
+    setMessage("Too low! Try a higher number.", "error");
+  } else {
+    setMessage("Too high! Try a lower number.", "error");
+  }
+
+  guessInput.value = "";
+  guessInput.focus();
 }
 
-// Toggle pause
-function togglePause() {
-  isPaused = !isPaused;
-  document.getElementById("status").textContent = isPaused ? "Paused" : "Playing...";
+function restartGame() {
+  startNewGame(currentDifficulty);
 }
 
-// End game
-function endGame() {
-  gameOver = true;
-  document.getElementById("finalScore").textContent = score;
-  document.getElementById("gameOver").classList.add("show");
-}
+guessButton.addEventListener("click", checkGuess);
+restartButton.addEventListener("click", restartGame);
+difficultySelect.addEventListener("change", (event) => {
+  startNewGame(event.target.value);
+});
 
-// Start the game when page loads
-window.addEventListener("load", init);
+guessInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    checkGuess();
+  }
+});
+
+startNewGame(currentDifficulty);
+renderLeaderboard();
