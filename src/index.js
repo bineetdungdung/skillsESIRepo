@@ -6,8 +6,33 @@ const difficultySettings = {
 
 const randomNumberBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
+function createSubmitButton({ label = "Submit", id = "", className = "", disabled = false, onClick } = {}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "submit-button";
+
+  if (className) {
+    button.classList.add(className);
+  }
+
+  if (id) {
+    button.id = id;
+  }
+
+  button.textContent = label;
+
+  if (disabled) {
+    button.disabled = true;
+  }
+
+  if (typeof onClick === "function") {
+    button.addEventListener("click", onClick);
+  }
+
+  return button;
+}
+
 const guessInput = document.getElementById("guessInput");
-const guessButton = document.getElementById("guessButton");
 const restartButton = document.getElementById("restartButton");
 const difficultySelect = document.getElementById("difficultySelect");
 const attemptsLabel = document.getElementById("attempts");
@@ -16,6 +41,19 @@ const messageBox = document.getElementById("message");
 const guessList = document.getElementById("guessList");
 const leaderboardList = document.getElementById("leaderboardList");
 const subtitle = document.querySelector(".subtitle");
+const guessButton = createSubmitButton({
+  id: "guessButton",
+  label: "Guess",
+});
+
+const controlsRow = document.querySelector(".controls-row");
+const existingGuessButton = document.getElementById("guessButton");
+
+if (existingGuessButton) {
+  existingGuessButton.replaceWith(guessButton);
+} else {
+  controlsRow.appendChild(guessButton);
+}
 
 const SCORE_STORAGE_KEY = "guessing-game-leaderboard";
 const previousGuesses = [];
